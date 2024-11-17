@@ -2,21 +2,28 @@ The Amber CLI can be used as a runtime or as a compiler.
 
 ## Command Line Interface
 
+The Amber CLI syntax uses subcommands, like the Git CLI:
+
 *This output is generated from the 0.4.0-alpha version.*
 ```
-Usage: amber [OPTIONS] [INPUT] [OUTPUT]
+Usage: amber [INPUT] [ARGS]... [COMMAND]
+
+Commands:
+  eval   Execute Amber code fragment
+  run    Execute Amber script
+  check  Check Amber script for errors
+  build  Compile Amber script to Bash
+  docs   Generate Amber script documentation
+  comp   Generate Bash completion script
+  help   Print this message or the help of the given subcommand(s)
 
 Arguments:
-  [INPUT]   '-' to read from stdin
-  [OUTPUT]  '-' to output to stdout, '--silent' to discard
+  [INPUT]    Input filename ('-' to read from stdin)
+  [ARGS]...  Arguments passed to Amber script
 
 Options:
-  -e, --eval <EVAL>     Code to evaluate
-      --docs            Generate docs (OUTPUT is dir instead, default: `docs/`)
-      --disable-format  Don't format the output file
-      --minify          Minify the resulting code
-  -h, --help            Print help
-  -V, --version         Print version
+  -h, --help     Print help
+  -V, --version  Print version
 ```
 
 ### Running Amber Code
@@ -24,14 +31,44 @@ Options:
 The following command will simply execute `hello.ab` as a script file. Amber code will be compiled to Bash and then executed all in one go:
 
 ```sh
-$ amber hello.ab
+$ amber run hello.ab
 Hello world!
 ```
 
-If you want to run just a small expression, you can do that as well. Simply pass the `-e` (execute) flag to the command:
+Alternatively, if the file contains a _shebang_ line and has the executable bit set, it can be run like this:
+
+```ab
+#!/usr/bin/env amber
+echo "Hello world"
+```
 
 ```sh
-$ amber -e 'echo upper("Hello world!")'
+$ ./hello.ab
+Hello world
+```
+
+Additionally, command line arguments can be passed to the script:
+
+```ab
+#!/usr/bin/env amber
+main(args) {
+    for arg in args {
+        echo arg
+    }
+}
+```
+
+```sh
+$ ./args.ab 1 2 3
+1
+2
+3
+```
+
+If you want to run just a small expression, you can do that as well:
+
+```sh
+$ amber eval 'echo upper("Hello world!")'
 HELLO WORLD!
 ```
 
@@ -42,7 +79,7 @@ Notice that when executing a single expression, Amber automatically includes its
 There are times when you prefer to just compile Amber code to a script, for example when dealing with _cron jobs_:
 
 ```sh
-$ amber input.ab output.sh
+$ amber build input.ab output.sh
 ```
 
 You’ll notice that the compiled script is immediately callable; hence, there’s no need to add executable permissions using `chmod`, for instance. Amber grants the permission automatically.
@@ -53,12 +90,12 @@ Furthermore, Amber adds a _shebang_ at the top of the compiled script. This enab
 $ ./output.sh
 ```
 
-#### Disable Formatting
+#### Postprocessors
 
-Using the `--disable-format` option prevents the execution of external formatting tools after the Bash compilation process:
+By default, Amber runs postprocessors `shfmt` and `bshchk` (if installed) on the compiled Bash script.  This functionality can be disabled with a `--no-proc` option:
 
 ```sh
-$ amber --disable-format input.ab output.sh
+$ amber build --no-proc=bshchk input.ab output.sh
 ```
 
 #### Minification
@@ -66,15 +103,38 @@ $ amber --disable-format input.ab output.sh
 Additionally, the `--minify` option compresses the generated Bash code to reduce its size:
 
 ```sh
-$ amber --minify input.ab output.sh
+$ amber build --minify input.ab output.sh
 ```
 
 ### Generating Amber Documentation
 
-The `--docs` option extracts comments prefixed with `///` (triple slashes) from a single Amber file, and generates a Markdown file for documentation, by default in the `docs` subdirectory:
+The following command extracts comments prefixed with `///` (triple slashes) from a single Amber file, and generates a Markdown file for documentation, by default in the `docs` subdirectory:
 
 ```sh
-$ amber --docs stdlib.ab
+$ amber docs stdlib.ab
+```
+
+### Generating Bash Completion Scripts
+
+The following command generates a [Bash completion](https://en.wikipedia.org/wiki/Command-line_completion) script:
+
+```sh
+$ amber comp
+_amber() {
+    local i cur prev opts cmd
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+...
+```
+
+This can be sourced in the `.bashrc` file via command redirection, so that command completion works in all subsequently opened Bash shells.  Assuming the `amber` binary is on the system path:
+
+```sh
+$ cat ~/.bashrc
+...
+source <(amber comp)
+...
 ```
 
 ## Syntax Highlighting
